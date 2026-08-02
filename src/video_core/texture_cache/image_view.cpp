@@ -64,6 +64,13 @@ ImageViewInfo::ImageViewInfo(const AmdGpu::Image& image, const Shader::ImageReso
     range.extent.levels = image.NumViewLevels(desc.is_array);
     range.extent.layers = image.NumViewLayers(desc.is_array);
     type = image.GetViewType(desc.is_array);
+    if (AmdGpu::IsBlockCoded(image.GetDataFmt())) {
+        if (type == AmdGpu::ImageType::Color1D) {
+            type = AmdGpu::ImageType::Color2D;
+        } else if (type == AmdGpu::ImageType::Color1DArray) {
+            type = AmdGpu::ImageType::Color2DArray;
+        }
+    }
     min_lod = static_cast<u32>(image.min_lod);
 
     if (!is_storage) {

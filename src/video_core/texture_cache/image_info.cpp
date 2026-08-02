@@ -130,6 +130,13 @@ ImageInfo::ImageInfo(const AmdGpu::Image& image, const Shader::ImageResource& de
     props.is_volume = type == AmdGpu::ImageType::Color3D;
     props.is_pow2 = image.pow2pad;
     props.is_block = AmdGpu::IsBlockCoded(image.GetDataFmt());
+    if (props.is_block) {
+        if (type == AmdGpu::ImageType::Color1D) {
+            type = AmdGpu::ImageType::Color2D;
+        } else if (type == AmdGpu::ImageType::Color1DArray) {
+            type = AmdGpu::ImageType::Color2DArray;
+        }
+    }
     size.width = image.width + 1;
     size.height = image.height + 1;
     size.depth = props.is_volume ? image.depth + 1 : 1;

@@ -297,6 +297,7 @@ public:
         Id sampled_type;
         Id image_type;
         AmdGpu::ImageType view_type;
+        AmdGpu::ImageType orig_view_type;
         bool is_integer = false;
         bool is_storage = false;
         MipStorageFallbackMode mip_fallback_mode{};

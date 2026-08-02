@@ -45,7 +45,12 @@ static vk::ImageUsageFlags ImageUsageFlags(const Vulkan::Instance* instance,
     return usage;
 }
 
-static vk::ImageType ConvertImageType(AmdGpu::ImageType type) noexcept {
+static vk::ImageType ConvertImageType(AmdGpu::ImageType type, bool is_block = false) noexcept {
+    if (is_block) {
+        if (type == AmdGpu::ImageType::Color1D || type == AmdGpu::ImageType::Color1DArray) {
+            return vk::ImageType::e2D;
+        }
+    }
     switch (type) {
     case AmdGpu::ImageType::Color1D:
     case AmdGpu::ImageType::Color1DArray:
@@ -155,7 +160,7 @@ Image::Image(const Vulkan::Instance& instance_, Vulkan::Scheduler& scheduler_,
     const auto supported_format = instance->GetSupportedFormat(info.pixel_format, format_features);
     const vk::PhysicalDeviceImageFormatInfo2 format_info{
         .format = supported_format,
-        .type = ConvertImageType(info.type),
+        .type = ConvertImageType(info.type, info.props.is_block),
         .tiling = tiling,
         .usage = usage_flags,
         .flags = flags,
@@ -173,7 +178,7 @@ Image::Image(const Vulkan::Instance& instance_, Vulkan::Scheduler& scheduler_,
 
     const vk::ImageCreateInfo image_ci = {
         .flags = flags,
-        .imageType = ConvertImageType(info.type),
+        .imageType = ConvertImageType(info.type, info.props.is_block),
         .format = supported_format,
         .extent{
             .width = info.size.width,
@@ -443,8 +448,8 @@ void Image::Download(std::span<const vk::BufferImageCopy> download_copies, vk::B
 
 static std::pair<u32, u32> SanitizeCopyLayers(const ImageInfo& src_info, const ImageInfo& dst_info,
                                               const u32 depth) {
-    const auto vk_src_type = ConvertImageType(src_info.type);
-    const auto vk_dst_type = ConvertImageType(dst_info.type);
+    const auto vk_src_type = ConvertImageType(src_info.type, src_info.props.is_block);
+    const auto vk_dst_type = ConvertImageType(dst_info.type, dst_info.props.is_block);
 
     u32 src_layers = src_info.resources.layers;
     u32 dst_layers = dst_info.resources.layers;
@@ -517,11 +522,11 @@ void Image::CopyImage(Image& src_image) {
 
     const vk::ImageAspectFlags dst_aspect = aspect_mask & ~vk::ImageAspectFlagBits::eStencil;
 
-    const bool src_is_2d = ConvertImageType(src_info.type) == vk::ImageType::e2D;
-    const bool src_is_3d = ConvertImageType(src_info.type) == vk::ImageType::e3D;
+    const bool src_is_2d = ConvertImageType(src_info.type, src_info.props.is_block) == vk::ImageType::e2D;
+    const bool src_is_3d = ConvertImageType(src_info.type, src_info.props.is_block) == vk::ImageType::e3D;
 
-    const bool dst_is_2d = ConvertImageType(info.type) == vk::ImageType::e2D;
-    const bool dst_is_3d = ConvertImageType(info.type) == vk::ImageType::e3D;
+    const bool dst_is_2d = ConvertImageType(info.type, info.props.is_block) == vk::ImageType::e2D;
+    const bool dst_is_3d = ConvertImageType(info.type, info.props.is_block) == vk::ImageType::e3D;
 
     const bool is_2d_to_3d = src_is_2d && dst_is_3d;
     const bool is_3d_to_2d = src_is_3d && dst_is_2d;

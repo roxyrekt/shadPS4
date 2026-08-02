@@ -926,7 +926,14 @@ spv::ImageFormat GetFormat(const AmdGpu::Image& image) {
 Id ImageType(EmitContext& ctx, const ImageResource& desc, Id sampled_type) {
     const auto image = desc.GetSharp(ctx.info);
     const auto format = desc.is_atomic ? GetFormat(image) : spv::ImageFormat::Unknown;
-    const auto type = image.GetViewType(desc.is_array);
+    auto type = image.GetViewType(desc.is_array);
+    if (AmdGpu::IsBlockCoded(image.GetDataFmt())) {
+        if (type == AmdGpu::ImageType::Color1D) {
+            type = AmdGpu::ImageType::Color2D;
+        } else if (type == AmdGpu::ImageType::Color1DArray) {
+            type = AmdGpu::ImageType::Color2DArray;
+        }
+    }
     const u32 sampled = desc.is_written ? 2 : 1;
     switch (type) {
     case AmdGpu::ImageType::Color1D:
@@ -971,12 +978,22 @@ void EmitContext::DefineImagesAndSamplers() {
         Decorate(id, spv::Decoration::DescriptorSet, 0U);
         // TODO better naming for resources (flattened sharp_idx is not informative)
         Name(id, fmt::format("{}_{}{}", stage, "img", image_desc.sharp_idx));
+        auto view_type = sharp.GetViewType(image_desc.is_array);
+        const auto orig_view_type = view_type;
+        if (AmdGpu::IsBlockCoded(sharp.GetDataFmt())) {
+            if (view_type == AmdGpu::ImageType::Color1D) {
+                view_type = AmdGpu::ImageType::Color2D;
+            } else if (view_type == AmdGpu::ImageType::Color1DArray) {
+                view_type = AmdGpu::ImageType::Color2DArray;
+            }
+        }
         images.push_back({
             .data_types = &data_types,
             .id = id,
             .sampled_type = is_storage ? sampled_type : TypeSampledImage(image_type),
             .image_type = image_type,
-            .view_type = sharp.GetViewType(image_desc.is_array),
+            .view_type = view_type,
+            .orig_view_type = orig_view_type,
             .is_integer = is_integer,
             .is_storage = is_storage,
             .mip_fallback_mode = mip_fallback_mode,
